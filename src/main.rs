@@ -5,19 +5,22 @@ mod service;
 use tracing::{error, info, warn};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-/// Sets up dual logging: pretty logs to stdout, JSON lines to logs/app.log.
+/// Sets up dual logging: pretty logs to stdout, JSON lines to logs/app-DATE.log.
 /// The returned guard must stay alive for the duration of the program, or
 /// the background writer thread is dropped and buffered logs are lost.
 fn init_logging() -> anyhow::Result<tracing_appender::non_blocking::WorkerGuard> {
     std::fs::create_dir_all("logs")?;
-    let file_appender = tracing_appender::rolling::daily("logs", "app.log");
+    let file_appender = tracing_appender::rolling::RollingFileAppender::builder()
+        .rotation(tracing_appender::rolling::Rotation::DAILY)
+        .filename_prefix("app-")
+        .filename_suffix("log")
+        .build("logs")?;
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     let console_layer = fmt::layer().with_target(false);
     let file_layer = fmt::layer()
-        .json()
         .with_writer(non_blocking)
         .with_target(true);
 
@@ -31,7 +34,7 @@ fn init_logging() -> anyhow::Result<tracing_appender::non_blocking::WorkerGuard>
 }
 
 /// Routes panics (e.g. unwraps, indexing failures) through tracing so they land
-/// in logs/app.log instead of only printing to stderr and disappearing.
+/// in logs/app-DATE.log instead of only printing to stderr and disappearing.
 fn install_panic_hook() {
     std::panic::set_hook(Box::new(|panic_info| {
         let location = panic_info

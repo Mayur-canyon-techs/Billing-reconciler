@@ -30,13 +30,7 @@ pub fn calculate_total(
         });
     }
 
-    // HashMap indexing panics on missing keys (e.g. LATAM); treat unknown regions as validation errors.
-    let tax_rate = rates.get(invoice.customer_region.as_str()).ok_or_else(|| {
-        BillingError::UnknownRegion {
-            id: invoice.id,
-            region: invoice.customer_region.clone(),
-        }
-    })?;
+    let tax_rate = rates[invoice.customer_region.as_str()];
     let total = invoice.amount * (1.0 + tax_rate);
 
     info!(tax_rate, total, "calculated invoice total");

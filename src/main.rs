@@ -5,19 +5,19 @@ mod service;
 use tracing::{error, info, warn};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-/// Sets up dual logging: pretty logs to stdout, JSON lines to logs/app.log.
+/// Sets up dual logging: pretty logs to stdout, plain-text lines to logs/app.log.
 /// The returned guard must stay alive for the duration of the program, or
 /// the background writer thread is dropped and buffered logs are lost.
 fn init_logging() -> anyhow::Result<tracing_appender::non_blocking::WorkerGuard> {
     std::fs::create_dir_all("logs")?;
-    let file_appender = tracing_appender::rolling::daily("logs", "app.log");
-    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    let log_file = std::fs::File::create("logs/app.log")?;
+    let (non_blocking, guard) = tracing_appender::non_blocking(log_file);
 
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
-    let console_layer = fmt::layer().with_target(false);
+    let console_layer = fmt::layer().with_ansi(false).with_target(false);
     let file_layer = fmt::layer()
-        .json()
+        .with_ansi(false)
         .with_writer(non_blocking)
         .with_target(true);
 
